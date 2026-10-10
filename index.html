@@ -9,7 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
 <style>
-/* Layout: control-console — square simulation stage left, controls + telemetry rail right, loop pipeline + error trace underneath */
+/* Layout: control console — world view left, camera feed + telemetry rail right; settings, benchmark, loop and error trace below */
 :root {
   --bg: #eef1f4;
   --panel: #ffffff;
@@ -21,12 +21,16 @@
   --reach: rgba(36, 92, 160, 0.07);
   --link1: #245ca0;
   --link2: #e0661c;
-  --target: #b8187a;
-  --trail: rgba(184, 24, 122, 0.35);
+  --target: #1f8a4c;
+  --est: #b8187a;
+  --meas: #7d8a97;
+  --raw: #c0392b;
+  --kf: #0f8b8d;
   --ok: #1f8a4c;
   --warn: #c0392b;
   --accent: #e0661c;
   --accent-ink: #ffffff;
+  --cam-bg: #0e141b;
   --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
@@ -35,20 +39,21 @@
   :root:not([data-theme="light"]) {
     --bg: #0f1620; --panel: #161f2b; --ink: #e6ecf2; --muted: #93a3b4; --line: #2a3646;
     --grid: #1d2835; --stage: #121a24; --reach: rgba(110, 160, 230, 0.08);
-    --link1: #6ea0e6; --link2: #ff8a42; --target: #f05bb5; --trail: rgba(240, 91, 181, 0.4);
-    --ok: #4cc283; --warn: #ff6f61; --accent: #ff8a42; --accent-ink: #1a0e05; color-scheme: dark;
+    --link1: #6ea0e6; --link2: #ff8a42; --target: #4cc283; --est: #f05bb5; --meas: #8796a6; --raw: #ff6f61; --kf: #45c7c9;
+    --ok: #4cc283; --warn: #ff6f61; --accent: #ff8a42; --accent-ink: #1a0e05; --cam-bg: #05080c; color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #0f1620; --panel: #161f2b; --ink: #e6ecf2; --muted: #93a3b4; --line: #2a3646;
   --grid: #1d2835; --stage: #121a24; --reach: rgba(110, 160, 230, 0.08);
-  --link1: #6ea0e6; --link2: #ff8a42; --target: #f05bb5; --trail: rgba(240, 91, 181, 0.4);
-  --ok: #4cc283; --warn: #ff6f61; --accent: #ff8a42; --accent-ink: #1a0e05; color-scheme: dark;
+  --link1: #6ea0e6; --link2: #ff8a42; --target: #4cc283; --est: #f05bb5; --meas: #8796a6; --raw: #ff6f61; --kf: #45c7c9;
+  --ok: #4cc283; --warn: #ff6f61; --accent: #ff8a42; --accent-ink: #1a0e05; --cam-bg: #05080c; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
-.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 0 32px; }
+.wrap { max-width: 1280px; margin: 0 auto; padding-inline: 20px; padding-block: 0 32px; }
+a { color: inherit; }
 
 header.top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -68,14 +73,15 @@ header.top {
 .pill.paused .dot { background: var(--muted); animation: none; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
-.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 20px; align-items: start; }
-@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 20px; align-items: start; }
+@media (max-width: 960px) { .main { grid-template-columns: minmax(0, 1fr); } }
 
-.stage-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
-.stage-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.card-head h2 { margin: 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
 .seg button {
-  font: 500 13px var(--f-body); color: var(--muted); background: transparent; border: 0; padding: 7px 12px; cursor: pointer;
+  font: 500 13px var(--f-body); color: var(--muted); background: transparent; border: 0; padding: 7px 11px; cursor: pointer;
 }
 .seg button + button { border-left: 1px solid var(--line); }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
@@ -86,26 +92,49 @@ header.top {
   padding: 7px 12px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
 }
 .btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.55; cursor: progress; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); min-width: 84px; justify-content: center; }
 .canvas-box { position: relative; aspect-ratio: 1 / 1; max-width: 100%; background: var(--stage); }
-#sim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#sim { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
 .hint {
   position: absolute; left: 12px; bottom: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--muted);
-  background: var(--panel); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; pointer-events: none;
+  background: var(--panel); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; pointer-events: none; max-width: calc(100% - 24px);
 }
 .legend { position: absolute; right: 12px; top: 10px; display: grid; gap: 3px; font-size: 11.5px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--line); padding: 6px 10px; border-radius: 6px; pointer-events: none; }
 .legend span { display: flex; align-items: center; gap: 7px; }
 .sw { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+.sw.ring { width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--est); background: transparent; }
+.sw.dotm { width: 6px; height: 6px; border-radius: 50%; background: var(--meas); margin-inline: 4px; }
+.sw.cross { width: 10px; height: 10px; background:
+  linear-gradient(45deg, transparent 42%, var(--target) 42% 58%, transparent 58%),
+  linear-gradient(-45deg, transparent 42%, var(--target) 42% 58%, transparent 58%); }
 
 aside.rail { display: grid; gap: 16px; min-width: 0; }
-.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
-.panel h2 { font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 0 0 12px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+h2.lbl { font: 600 11px var(--f-body); text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin: 0 0 12px; }
+.card-head h2.lbl { margin: 0; }
 
-.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.cam-box { position: relative; aspect-ratio: 4 / 3; max-width: 100%; background: var(--cam-bg); }
+#cam { position: absolute; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.cam-tag { position: absolute; left: 8px; top: 8px; font: 600 10.5px var(--f-mono); color: #e8eef3; background: rgba(0,0,0,0.55);
+  padding: 2px 7px; border-radius: 4px; pointer-events: none; }
+.cam-tag.rec::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #ff4d4d; margin-right: 6px; vertical-align: 1px; }
+.cam-status { position: absolute; left: 8px; bottom: 8px; right: 8px; display: flex; justify-content: space-between; gap: 6px; pointer-events: none; }
+.cam-status span { font: 600 10.5px var(--f-mono); padding: 2px 7px; border-radius: 4px; background: rgba(0,0,0,0.6); color: #e8eef3; white-space: nowrap; }
+.cam-status .bad { background: rgba(192, 57, 43, 0.9); }
+.cam-status .good { background: rgba(31, 138, 76, 0.9); }
+.cam-foot { padding: 8px 14px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.cam-foot b { font-family: var(--f-mono); font-weight: 600; color: var(--ink); }
+.estimator { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
+.estimator .seg { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); }
+.estimator .seg button { padding: 8px 6px; }
+.estimator p { margin: 0; font-size: 12px; color: var(--muted); min-height: 2.4em; }
+
+.readout { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin: 0; }
 .readout div { min-width: 0; }
 .readout dt { font-size: 12px; color: var(--muted); }
-.readout dd { margin: 0; font: 600 17px var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.readout dd { margin: 0; font: 600 16px var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .readout dd small { font-size: 11px; color: var(--muted); font-weight: 400; }
 .err-big { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: end; gap: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
 .err-big dd { font-size: 30px; font-family: var(--f-display); font-weight: 800; letter-spacing: -0.02em; }
@@ -114,36 +143,53 @@ aside.rail { display: grid; gap: 16px; min-width: 0; }
 
 .ctrl { display: grid; gap: 4px; margin-bottom: 14px; }
 .ctrl:last-child { margin-bottom: 0; }
-.ctrl label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 500; }
-.ctrl label output { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.ctrl label { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
+.ctrl label output { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
 .ctrl input[type="range"] { width: 100%; accent-color: var(--accent); }
 .ctrl .note { font-size: 11.5px; color: var(--muted); }
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 500; }
 .toggle input { accent-color: var(--accent); width: 18px; height: 18px; }
 
-.below { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 20px; margin-top: 20px; }
-@media (max-width: 900px) { .below { grid-template-columns: minmax(0, 1fr); } }
-.pipeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; margin-top: 20px; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 20px; margin-top: 20px; }
+@media (max-width: 960px) { .row3, .row2 { grid-template-columns: minmax(0, 1fr); } }
+
+.bench { display: grid; gap: 12px; }
+.bar-row { display: grid; gap: 4px; }
+.bar-row .top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 500; }
+.bar-row .top b { font: 600 13px var(--f-mono); font-variant-numeric: tabular-nums; }
+.bar { height: 10px; border-radius: 5px; background: var(--grid); overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; border-radius: 5px; transition: width 0.5s ease; }
+.bar-row .sub { font-size: 11.5px; color: var(--muted); font-family: var(--f-mono); }
+.bench-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 12px; }
+.verdict { font-size: 13px; }
+.verdict b { font-family: var(--f-display); font-weight: 800; font-size: 18px; color: var(--kf); }
+.bench-note { font-size: 11.5px; color: var(--muted); margin: 0; }
+
+.pipeline { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; }
 .pipeline li {
-  display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center;
-  padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; transition: border-color 0.15s, background 0.15s;
+  display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; transition: border-color 0.15s;
 }
 .pipeline li.on { border-color: var(--accent); }
+.pipeline li.skip { opacity: 0.45; }
 .pipeline .n { font: 600 12px var(--f-mono); color: var(--muted); text-align: center; }
 .pipeline li.on .n { color: var(--accent); }
-.pipeline .t { font-weight: 600; font-size: 13px; }
+.pipeline .t { font-weight: 600; font-size: 13px; min-width: 0; }
 .pipeline .d { font-size: 12px; color: var(--muted); display: block; font-weight: 400; }
 .pipeline .v { font: 12px var(--f-mono); font-variant-numeric: tabular-nums; color: var(--ink); text-align: right; white-space: nowrap; }
 .loopback { font-size: 12px; color: var(--muted); margin: 10px 0 0; font-family: var(--f-mono); }
-.chart-box { position: relative; height: 210px; }
+.chart-box { position: relative; height: 230px; }
 #chart { position: absolute; inset: 0; width: 100%; height: 100%; }
-.stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.chart-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin-top: 8px; }
+.chart-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.stats { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .stats b { font-family: var(--f-mono); color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 
 footer { margin-top: 22px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 footer code { font-family: var(--f-mono); font-size: 11.5px; }
-@media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } .pipeline li { transition: none; } }
-@media (max-width: 480px) { .wrap { padding-inline: 16px; } .err-big dd { font-size: 24px; } .legend { display: none; } }
+@media (prefers-reduced-motion: reduce) { .pill.live .dot { animation: none; } .pipeline li, .bar i { transition: none; } }
+@media (max-width: 480px) { .wrap { padding-inline: 16px; } .err-big dd { font-size: 24px; } .legend { display: none; } .seg button { padding: 7px 9px; } }
 </style>
 </head>
 <body>
@@ -156,23 +202,23 @@ footer code { font-family: var(--f-mono); font-size: 11.5px; }
         <line x1="9" y1="25" x2="15" y2="14" stroke="var(--link1)" stroke-width="3" stroke-linecap="round"/>
         <line x1="15" y1="14" x2="24" y2="11" stroke="var(--link2)" stroke-width="3" stroke-linecap="round"/>
         <circle cx="9" cy="25" r="2.4" fill="var(--panel)"/>
-        <path d="M22 9l4 4M26 9l-4 4" stroke="var(--target)" stroke-width="1.8" stroke-linecap="round"/>
+        <circle cx="25" cy="10" r="3.2" fill="none" stroke="var(--est)" stroke-width="1.6"/>
       </svg>
       <div>
         <h1>ServoLab</h1>
-        <p>Camera-guided 2-link arm · visual servoing simulator</p>
+        <p>Camera-guided 2-link arm · colour detection · Kalman filter</p>
       </div>
     </div>
     <div class="status">
       <span class="pill live" id="runPill"><span class="dot"></span><span id="runText">Running · 20 Hz loop</span></span>
       <span class="pill">t = <span id="simTime">0.00</span> s</span>
-      <span class="pill">v1.0 · production</span>
+      <span class="pill">v2.0</span>
     </div>
   </header>
 
   <div class="main">
-    <section class="stage-card" aria-label="Simulation">
-      <div class="stage-head">
+    <section class="card" aria-label="World view">
+      <div class="card-head">
         <div class="seg" role="group" aria-label="Target motion">
           <button id="m-circle" aria-pressed="true">Circular path</button>
           <button id="m-random" aria-pressed="false">Unknown path</button>
@@ -185,94 +231,163 @@ footer code { font-family: var(--f-mono); font-size: 11.5px; }
         </div>
       </div>
       <div class="canvas-box">
-        <canvas id="sim" aria-label="Arm and target in the world frame, metres"></canvas>
+        <canvas id="sim" aria-label="Arm, true target and the robot's estimate in the world frame, metres"></canvas>
         <div class="legend">
-          <span><i class="sw" style="background:var(--link1)"></i>Link 1 · L1 = 1.2 m</span>
-          <span><i class="sw" style="background:var(--link2)"></i>Link 2 · L2 = 1.0 m</span>
-          <span><i class="sw" style="background:var(--target)"></i>Target</span>
+          <span><i class="sw" style="background:var(--link1)"></i>Link 1 · 1.2 m</span>
+          <span><i class="sw" style="background:var(--link2)"></i>Link 2 · 1.0 m</span>
+          <span><i class="sw cross"></i>True target</span>
+          <span><i class="sw ring"></i>Robot's estimate</span>
+          <span><i class="sw dotm"></i>Camera measurements</span>
         </div>
         <div class="hint" id="hint">World frame · metres · shaded ring = reachable workspace</div>
       </div>
     </section>
 
     <aside class="rail">
+      <section class="card" aria-label="Camera feed">
+        <div class="card-head"><h2 class="lbl">What the robot sees</h2><span class="pill" id="camLag">150 ms delay</span></div>
+        <div class="estimator">
+          <div class="seg" role="group" aria-label="Target estimate source">
+            <button id="e-oracle" aria-pressed="false">Perfect info</button>
+            <button id="e-raw" aria-pressed="false">Raw camera</button>
+            <button id="e-kalman" aria-pressed="true">Kalman filter</button>
+          </div>
+          <p id="estNote">Detections go through a constant-velocity Kalman filter that smooths jitter, coasts through gaps and predicts ahead to cancel the camera delay.</p>
+        </div>
+        <div class="cam-box">
+          <canvas id="cam" width="320" height="240" aria-label="Overhead camera frame with the detected ball circled"></canvas>
+          <span class="cam-tag rec">CAM 0 · 320×240 · overhead</span>
+          <div class="cam-status"><span id="camAge">frame t−150 ms</span><span id="camDet" class="good">ball detected</span></div>
+        </div>
+        <div class="cam-foot"><span>Calibrated from a 5×4 dot grid</span><span>mean error <b id="calErr">–</b></span></div>
+      </section>
+
       <section class="panel" aria-label="Telemetry">
-        <h2>Live telemetry</h2>
+        <h2 class="lbl">Live telemetry</h2>
         <dl class="readout">
           <div class="err-big">
-            <div><dt>Tracking error ‖e‖</dt><dd id="errV">0.000 <small>m</small></dd></div>
+            <div><dt>Tracking error, tip to true target</dt><dd id="errV">0.0 <small>cm</small></dd></div>
             <span class="chip ok" id="lockChip">LOCKED</span>
           </div>
+          <div><dt>Estimate error</dt><dd id="estErrV">0.0 cm</dd></div>
+          <div><dt>Detected, last 5 s</dt><dd id="detV">–</dd></div>
           <div><dt>θ1 shoulder</dt><dd id="t1V">0.0°</dd></div>
           <div><dt>θ2 elbow</dt><dd id="t2V">0.0°</dd></div>
-          <div><dt>End effector</dt><dd id="eeV">(2.20, 0.00)</dd></div>
-          <div><dt>Target</dt><dd id="tgV">(1.60, 0.00)</dd></div>
           <div><dt>IK solution</dt><dd id="ikV">valid</dd></div>
           <div><dt>Step clamp</dt><dd id="clampV">off</dd></div>
         </dl>
       </section>
-
-      <section class="panel" aria-label="Controller settings">
-        <h2>Controller</h2>
-        <div class="ctrl">
-          <label for="gain">Proportional gain K <output id="gainO">0.80</output></label>
-          <input type="range" id="gain" min="0.05" max="1" step="0.05" value="0.8">
-        </div>
-        <div class="ctrl">
-          <label for="maxStep">Max step per cycle <output id="maxStepO">0.080 m</output></label>
-          <input type="range" id="maxStep" min="0.01" max="0.2" step="0.005" value="0.08">
-          <span class="note">Caps end-effector speed at max step ÷ Δt (0.05 s).</span>
-        </div>
-        <div class="ctrl">
-          <label for="tSpeed">Target speed <output id="tSpeedO">0.30 rad/s</output></label>
-          <input type="range" id="tSpeed" min="0.05" max="1.5" step="0.05" value="0.3">
-        </div>
-        <div class="ctrl">
-          <label for="simRate">Playback rate <output id="simRateO">1.0×</output></label>
-          <input type="range" id="simRate" min="0.25" max="3" step="0.25" value="1">
-        </div>
-        <div class="ctrl">
-          <div class="toggle"><label for="elbowUp">Elbow-up IK branch</label><input type="checkbox" id="elbowUp" checked></div>
-        </div>
-      </section>
     </aside>
   </div>
 
-  <div class="below">
+  <div class="row3">
+    <section class="panel" aria-label="Camera settings">
+      <h2 class="lbl">Camera conditions</h2>
+      <div class="ctrl">
+        <label for="delay">Camera delay <output id="delayO">150 ms</output></label>
+        <input type="range" id="delay" min="0" max="400" step="50" value="150">
+      </div>
+      <div class="ctrl">
+        <label for="noise">Sensor noise <output id="noiseO">σ 8 grey levels</output></label>
+        <input type="range" id="noise" min="0" max="40" step="1" value="8">
+      </div>
+      <div class="ctrl">
+        <label for="shake">Camera shake <output id="shakeO">1.7 cm</output></label>
+        <input type="range" id="shake" min="0" max="6" step="0.1" value="1.7">
+      </div>
+      <div class="ctrl">
+        <label for="drop">Dropped frames <output id="dropO">5 %</output></label>
+        <input type="range" id="drop" min="0" max="50" step="1" value="5">
+      </div>
+      <div class="ctrl">
+        <div class="toggle"><label for="occl">Something passes in front of the camera every 12 s</label><input type="checkbox" id="occl" checked></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Controller settings">
+      <h2 class="lbl">Controller</h2>
+      <div class="ctrl">
+        <label for="gain">Proportional gain K <output id="gainO">0.80</output></label>
+        <input type="range" id="gain" min="0.05" max="1" step="0.05" value="0.8">
+      </div>
+      <div class="ctrl">
+        <label for="maxStep">Max step per cycle <output id="maxStepO">0.080 m</output></label>
+        <input type="range" id="maxStep" min="0.01" max="0.2" step="0.005" value="0.08">
+        <span class="note">Caps tip speed at max step ÷ 0.05 s.</span>
+      </div>
+      <div class="ctrl">
+        <label for="tSpeed">Target speed <output id="tSpeedO">0.30 rad/s</output></label>
+        <input type="range" id="tSpeed" min="0.05" max="1.5" step="0.05" value="0.3">
+      </div>
+      <div class="ctrl">
+        <label for="simRate">Playback rate <output id="simRateO">1×</output></label>
+        <input type="range" id="simRate" min="0.25" max="3" step="0.25" value="1">
+      </div>
+      <div class="ctrl">
+        <div class="toggle"><label for="elbowUp">Elbow-up IK branch</label><input type="checkbox" id="elbowUp" checked></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="Estimator benchmark">
+      <h2 class="lbl">Benchmark · 30 s, same path and noise</h2>
+      <div class="bench">
+        <div class="bar-row"><div class="top"><span>Perfect info</span><b id="b-oracle">–</b></div><div class="bar"><i id="bb-oracle" style="background:var(--meas)"></i></div><div class="sub" id="bs-oracle">no camera, the original simulation</div></div>
+        <div class="bar-row"><div class="top"><span>Raw camera</span><b id="b-raw">–</b></div><div class="bar"><i id="bb-raw" style="background:var(--raw)"></i></div><div class="sub" id="bs-raw">latest detection, held when missing</div></div>
+        <div class="bar-row"><div class="top"><span>Kalman filter</span><b id="b-kalman">–</b></div><div class="bar"><i id="bb-kalman" style="background:var(--kf)"></i></div><div class="sub" id="bs-kalman">filtered, latency-compensated</div></div>
+        <div class="bench-foot">
+          <span class="verdict" id="verdict">Running benchmark…</span>
+          <button class="btn" id="benchBtn">Re-run</button>
+        </div>
+        <p class="bench-note" id="benchNote">RMS tracking error after the first 2 s, using the current camera, controller and path settings.</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="row2">
     <section class="panel" aria-label="Control loop">
-      <h2>Closed loop, this cycle</h2>
+      <h2 class="lbl">Closed loop, this cycle</h2>
       <ol class="pipeline" id="pipe">
-        <li><span class="n">1</span><span class="t">Observe target<span class="d">Camera reports target in camera frame</span></span><span class="v" id="p1">—</span></li>
-        <li><span class="n">2</span><span class="t">Camera → world<span class="d">Extrinsic transform (identity in this sim)</span></span><span class="v" id="p2">—</span></li>
-        <li><span class="n">3</span><span class="t">Cartesian step<span class="d">step = clamp(K · e, max step)</span></span><span class="v" id="p3">—</span></li>
-        <li><span class="n">4</span><span class="t">Inverse kinematics<span class="d">Closed-form 2-link solution</span></span><span class="v" id="p4">—</span></li>
-        <li><span class="n">5</span><span class="t">Apply joints<span class="d">Forward kinematics → new pose</span></span><span class="v" id="p5">—</span></li>
+        <li><span class="n">1</span><span class="t">Grab frame<span class="d">Overhead camera, arrives late</span></span><span class="v" id="p1">–</span></li>
+        <li><span class="n">2</span><span class="t">Detect ball<span class="d">HSV threshold → blobs → roundness → centroid</span></span><span class="v" id="p2">–</span></li>
+        <li><span class="n">3</span><span class="t">Pixel → world<span class="d">Homography from the calibration image</span></span><span class="v" id="p3">–</span></li>
+        <li><span class="n">4</span><span class="t">Estimate target<span class="d" id="p4d">Kalman: predict, gate, update, look ahead</span></span><span class="v" id="p4">–</span></li>
+        <li><span class="n">5</span><span class="t">Cartesian step + IK<span class="d">step = clamp(K · e, max step), closed-form IK</span></span><span class="v" id="p5">–</span></li>
+        <li><span class="n">6</span><span class="t">Move arm<span class="d">Forward kinematics → new tip position</span></span><span class="v" id="p6">–</span></li>
       </ol>
-      <p class="loopback">↻ back to 1 every Δt = 0.05 s</p>
+      <p class="loopback">↻ back to 1 every 0.05 s</p>
     </section>
 
     <section class="panel" aria-label="Error history">
-      <h2>Tracking error, last 15 s</h2>
-      <div class="chart-box"><canvas id="chart" aria-label="Tracking error over time"></canvas></div>
+      <h2 class="lbl">Tracking error, last 15 s</h2>
+      <div class="chart-box"><canvas id="chart" aria-label="Tracking error over time, coloured by estimate source"></canvas></div>
+      <div class="chart-legend">
+        <span><i class="sw" style="background:var(--meas)"></i>Perfect info</span>
+        <span><i class="sw" style="background:var(--raw)"></i>Raw camera</span>
+        <span><i class="sw" style="background:var(--kf)"></i>Kalman filter</span>
+        <span><i class="sw" style="background:var(--ok);opacity:.35;height:8px"></i>within 5 cm</span>
+      </div>
       <div class="stats">
-        <span>Mean <b id="sMean">0.000 m</b></span>
-        <span>Peak <b id="sPeak">0.000 m</b></span>
-        <span>Locked <b id="sLock">0%</b></span>
+        <span>RMS <b id="sRms">–</b></span>
+        <span>Peak <b id="sPeak">–</b></span>
+        <span>Within 5 cm <b id="sLock">–</b></span>
         <span>IK misses <b id="sMiss">0</b></span>
       </div>
     </section>
   </div>
 
   <footer>
-    <span>Core math ported from <code>arm_math.py</code> and <code>visual_servo_controller.py</code> · runs fully in the browser</span>
-    <span>Lock threshold ‖e‖ &lt; 0.05 m</span>
+    <span>Browser port of <code>camera.py</code>, <code>perception.py</code>, <code>kalman.py</code> and <code>servo_pipeline.py</code>. The Python version uses OpenCV at 640×480.</span>
+    <span><a href="https://github.com/astitwaroy/Visual-servoing-2D-arm-simulation">Source on GitHub</a></span>
   </footer>
 </div>
 
 <script>
 (() => {
-  // ---------- arm_math.py ----------
-  const L1 = 1.2, L2 = 1.0;
+  'use strict';
+  // =====================================================================
+  // Kinematics + controller (arm_math.py, visual_servo_controller.py)
+  // =====================================================================
+  const L1 = 1.2, L2 = 1.0, DT = 0.05, LOCK = 0.05, WARMUP = 2.0;
   function fk(t1, t2) {
     const x1 = L1 * Math.cos(t1), y1 = L1 * Math.sin(t1);
     return [[x1, y1], [x1 + L2 * Math.cos(t1 + t2), y1 + L2 * Math.sin(t1 + t2)]];
@@ -280,14 +395,11 @@ footer code { font-family: var(--f-mono); font-size: 11.5px; }
   function ik(x, y, elbowUp) {
     const r2 = x * x + y * y, r = Math.sqrt(r2);
     if (r > L1 + L2 || r < Math.abs(L1 - L2)) return null;
-    let c = (r2 - L1 * L1 - L2 * L2) / (2 * L1 * L2);
-    c = Math.max(-1, Math.min(1, c));
+    const c = Math.max(-1, Math.min(1, (r2 - L1 * L1 - L2 * L2) / (2 * L1 * L2)));
     let t2 = Math.acos(c);
     if (!elbowUp) t2 = -t2;
-    const t1 = Math.atan2(y, x) - Math.atan2(L2 * Math.sin(t2), L1 + L2 * Math.cos(t2));
-    return [t1, t2];
+    return [Math.atan2(y, x) - Math.atan2(L2 * Math.sin(t2), L1 + L2 * Math.cos(t2)), t2];
   }
-  // ---------- visual_servo_controller.py ----------
   function stepController(pee, ptg, gain, maxStep) {
     let sx = gain * (ptg[0] - pee[0]), sy = gain * (ptg[1] - pee[1]);
     const n = Math.hypot(sx, sy);
@@ -296,303 +408,636 @@ footer code { font-family: var(--f-mono); font-size: 11.5px; }
     return { p: [pee[0] + sx, pee[1] + sy], step: [sx, sy], clamped };
   }
 
-  // ---------- sim state ----------
-  const DT = 0.05, R_CIRCLE = 1.6, R_MAX = 1.8, ACCEL = 0.8, LOCK = 0.05;
-  const $ = id => document.getElementById(id);
-  const cfg = { mode: 'circle', gain: 0.8, maxStep: 0.08, circSpeed: 0.3, randSpeed: 0.8, rate: 1, elbowUp: true };
-  let S;
-  function reset() {
-    S = {
-      t: 0, th: [0, 0], tgt: cfg.mode === 'circle' ? [R_CIRCLE, 0] : [1.2, 0.5], vel: [0, 0],
-      trail: [], err: [], ikOk: true, clamped: false, last: null, misses: 0
+  // Seeded RNG so the benchmark compares estimators on identical paths and noise
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
     };
-    if (cfg.mode === 'drag' && dragTarget) S.tgt = dragTarget.slice();
-    S.trail.push(S.tgt.slice());
   }
-  let dragTarget = null;
+  const gauss = rng => Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
 
-  function updateTarget() {
-    if (cfg.mode === 'circle') {
-      const a = cfg.circSpeed * S.t;
-      S.tgt = [R_CIRCLE * Math.cos(a), R_CIRCLE * Math.sin(a)];
-    } else if (cfg.mode === 'random') {
-      const v = S.vel, p = S.tgt;
-      v[0] += (Math.random() * 2 - 1) * ACCEL * DT;
-      v[1] += (Math.random() * 2 - 1) * ACCEL * DT;
-      const sp = Math.hypot(v[0], v[1]);
-      if (sp > cfg.randSpeed) { v[0] *= cfg.randSpeed / sp; v[1] *= cfg.randSpeed / sp; }
-      p[0] += v[0] * DT; p[1] += v[1] * DT;
-      const r = Math.hypot(p[0], p[1]);
-      if (r > R_MAX) { v[0] -= p[0] / r * ACCEL * DT; v[1] -= p[1] / r * ACCEL * DT; p[0] *= 0.98; p[1] *= 0.98; }
-    } else if (dragTarget) {
-      S.tgt = dragTarget.slice();
+  // =====================================================================
+  // Camera (camera.py): pinhole, looking down at the plane z = 0
+  // =====================================================================
+  const CAM = { w: 320, h: 240, fx: 200, fy: 200, cx: 160, cy: 120, pos: [0.1, 0.32, 4.5], tilt: 4, yaw: 3 };
+  const mul3 = (A, B) => A.map((r, i) => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+  function inv3(m) {
+    const [a, b, c] = m[0], [d, e, f] = m[1], [g, h, i] = m[2];
+    const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
+    const det = a * A + b * B + c * C;
+    return [[A / det, -(b * i - c * h) / det, (b * f - c * e) / det],
+            [B / det, (a * i - c * g) / det, -(a * f - c * d) / det],
+            [C / det, -(a * h - b * g) / det, (a * e - b * d) / det]];
+  }
+  const applyH = (H, x, y) => { const w = H[2][0] * x + H[2][1] * y + H[2][2]; return [(H[0][0] * x + H[0][1] * y + H[0][2]) / w, (H[1][0] * x + H[1][1] * y + H[1][2]) / w]; };
+  const H_TRUE = (() => {
+    const tl = CAM.tilt * Math.PI / 180, yw = CAM.yaw * Math.PI / 180;
+    const Rx = [[1, 0, 0], [0, Math.cos(tl), -Math.sin(tl)], [0, Math.sin(tl), Math.cos(tl)]];
+    const Rz = [[Math.cos(yw), -Math.sin(yw), 0], [Math.sin(yw), Math.cos(yw), 0], [0, 0, 1]];
+    const R = mul3(mul3(Rz, Rx), [[1, 0, 0], [0, -1, 0], [0, 0, -1]]);
+    const C = CAM.pos, t = [0, 1, 2].map(i => -(R[i][0] * C[0] + R[i][1] * C[1] + R[i][2] * C[2]));
+    const K = [[CAM.fx, 0, CAM.cx], [0, CAM.fy, CAM.cy], [0, 0, 1]];
+    const H = mul3(K, [0, 1, 2].map(i => [R[i][0], R[i][1], t[i]]));
+    return H.map(r => r.map(v => v / H[2][2]));
+  })();
+  const w2p = (x, y) => applyH(H_TRUE, x, y);
+  const pxPerM = (x, y, m) => { const a = w2p(x, y), b = w2p(x + m, y); return Math.hypot(b[0] - a[0], b[1] - a[1]); };
+
+  const camCanvas = document.createElement('canvas');
+  camCanvas.width = CAM.w; camCanvas.height = CAM.h;
+  const cctx = camCanvas.getContext('2d', { willReadFrequently: true });
+
+  // Static background: lamp vignette + reach circle drawn on the table
+  const bgCanvas = document.createElement('canvas');
+  bgCanvas.width = CAM.w; bgCanvas.height = CAM.h;
+  (() => {
+    const b = bgCanvas.getContext('2d'), img = b.createImageData(CAM.w, CAM.h);
+    for (let y = 0; y < CAM.h; y++) for (let x = 0; x < CAM.w; x++) {
+      const d2 = ((x - CAM.w / 2) ** 2 + (y - CAM.h / 2) ** 2) / ((CAM.w / 2) ** 2 + (CAM.h / 2) ** 2);
+      const base = 205 - 45 * d2, i = 4 * (y * CAM.w + x);
+      img.data[i] = base; img.data[i + 1] = base * 0.98; img.data[i + 2] = base * 0.97; img.data[i + 3] = 255;
+    }
+    b.putImageData(img, 0, 0);
+    b.strokeStyle = 'rgb(175,170,170)'; b.lineWidth = 1; b.beginPath();
+    for (let k = 0; k <= 180; k++) { const a = 2 * Math.PI * k / 180, p = w2p(2.2 * Math.cos(a), 2.2 * Math.sin(a)); k ? b.lineTo(p[0], p[1]) : b.moveTo(p[0], p[1]); }
+    b.stroke();
+  })();
+
+  // Pre-generated unit Gaussian table for fast per-pixel sensor noise
+  const NOISE_N = 1 << 18, NOISE = new Float32Array(NOISE_N);
+  { const r = mulberry32(12345); for (let i = 0; i < NOISE_N; i++) NOISE[i] = gauss(r); }
+
+  const PXM = pxPerM(0, 0, 1);  // ≈ 44 px per metre at the arm base
+  function renderFrame(theta, target, o, rng) {
+    const c = cctx;
+    const dx = o.shakeCm > 0 ? gauss(rng) * o.shakeCm / 100 * PXM : 0;
+    const dy = o.shakeCm > 0 ? gauss(rng) * o.shakeCm / 100 * PXM : 0;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.fillStyle = 'rgb(160,157,155)'; c.fillRect(0, 0, CAM.w, CAM.h);
+    c.setTransform(1, 0, 0, 1, dx, dy);
+    c.drawImage(bgCanvas, 0, 0);
+    const disc = (x, y, rm, col) => { const p = w2p(x, y); c.beginPath(); c.arc(p[0], p[1], Math.max(0.6, rm * PXM), 0, 2 * Math.PI); c.fillStyle = col; c.fill(); };
+    for (const m of o.markers || []) disc(m[0], m[1], 0.05, 'rgb(20,20,20)');
+    for (const d of o.distractors || []) disc(d[0], d[1], 0.03, 'rgb(90,170,80)');
+    // arm
+    const [[x1, y1], [x2, y2]] = fk(theta[0], theta[1]);
+    const P0 = w2p(0, 0), P1 = w2p(x1, y1), P2 = w2p(x2, y2);
+    c.lineCap = 'round';
+    c.strokeStyle = 'rgb(40,90,160)'; c.lineWidth = 0.09 * PXM; c.beginPath(); c.moveTo(P0[0], P0[1]); c.lineTo(P1[0], P1[1]); c.stroke();
+    c.strokeStyle = 'rgb(220,110,40)'; c.lineWidth = 0.07 * PXM; c.beginPath(); c.moveTo(P1[0], P1[1]); c.lineTo(P2[0], P2[1]); c.stroke();
+    disc(0, 0, 0.09, 'rgb(95,95,95)'); disc(x1, y1, 0.05, 'rgb(230,230,230)'); disc(x2, y2, 0.045, 'rgb(85,85,85)');
+    // the ball sits above the arm plane, so it is drawn last
+    if (target) disc(target[0], target[1], 0.09, 'rgb(70,200,60)');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    for (const poly of o.occluders || []) {
+      c.beginPath(); poly.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath();
+      c.fillStyle = 'rgb(130,125,120)'; c.fill();
+    }
+    const img = c.getImageData(0, 0, CAM.w, CAM.h), d = img.data;
+    const gain = 1 + (rng() * 2 - 1) * (o.flicker ?? 0.08);
+    const s = o.noise || 0;
+    let k = (rng() * NOISE_N) | 0;
+    for (let i = 0; i < d.length; i += 4) {
+      d[i] = d[i] * gain + s * NOISE[k]; d[i + 1] = d[i + 1] * gain + s * NOISE[(k + 1) & (NOISE_N - 1)];
+      d[i + 2] = d[i + 2] * gain + s * NOISE[(k + 2) & (NOISE_N - 1)];
+      k = (k + 3) & (NOISE_N - 1);
+    }
+    return img;
+  }
+
+  // =====================================================================
+  // Perception (perception.py): HSV threshold → connected blobs → roundness → centroid
+  // =====================================================================
+  const MASK = new Uint8Array(CAM.w * CAM.h), STACK = new Int32Array(CAM.w * CAM.h);
+  function blobs(img, test, minArea) {
+    const d = img.data, W = img.width, Hh = img.height, N = W * Hh;
+    for (let p = 0, i = 0; p < N; p++, i += 4) MASK[p] = test(d[i], d[i + 1], d[i + 2]) ? 1 : 0;
+    const out = [];
+    for (let p = 0; p < N; p++) {
+      if (MASK[p] !== 1) continue;
+      let sp = 0, area = 0, sx = 0, sy = 0, x0 = W, x1 = 0, y0 = Hh, y1 = 0;
+      STACK[sp++] = p; MASK[p] = 2;
+      while (sp) {
+        const q = STACK[--sp], x = q % W, y = (q - x) / W;
+        area++; sx += x; sy += y;
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && MASK[q - 1] === 1) { MASK[q - 1] = 2; STACK[sp++] = q - 1; }
+        if (x < W - 1 && MASK[q + 1] === 1) { MASK[q + 1] = 2; STACK[sp++] = q + 1; }
+        if (y > 0 && MASK[q - W] === 1) { MASK[q - W] = 2; STACK[sp++] = q - W; }
+        if (y < Hh - 1 && MASK[q + W] === 1) { MASK[q + W] = 2; STACK[sp++] = q + W; }
+      }
+      if (area < minArea) continue;
+      const bw = x1 - x0 + 1, bh = y1 - y0 + 1, r = (bw + bh) / 4;
+      const fill = area / (Math.PI * r * r), aspect = Math.min(bw, bh) / Math.max(bw, bh);
+      out.push({ u: sx / area + 0.5, v: sy / area + 0.5, area, r, fill, aspect });
+    }
+    return out;
+  }
+  // Green in OpenCV units: H 40–85 (80–170°), S ≥ 90, V ≥ 60
+  function isGreen(r, g, b) {
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), dd = mx - mn;
+    if (mx < 60 || mx !== g || dd * 255 < 90 * mx) return false;
+    const h = 60 * ((b - r) / dd + 2);
+    return h >= 80 && h <= 170;
+  }
+  function detectBall(img) {
+    let best = null, bestScore = 0;
+    for (const b of blobs(img, isGreen, 12)) {
+      if (b.aspect < 0.55 || b.fill < 0.55) continue;
+      const score = b.area * Math.min(1, b.fill);
+      if (score > bestScore) { bestScore = score; best = b; }
+    }
+    return best;
+  }
+
+  // Calibration: image of dark dots at known world points → homography (normalised DLT)
+  function solve(A, b) {
+    const n = b.length, M = A.map((r, i) => [...r, b[i]]);
+    for (let c = 0; c < n; c++) {
+      let piv = c; for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[piv][c])) piv = r;
+      [M[c], M[piv]] = [M[piv], M[c]];
+      for (let r = 0; r < n; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k]; }
+    }
+    return M.map((r, i) => r[n] / r[i]);
+  }
+  function homographyDLT(pix, world) {
+    const T = [[1 / 100, 0, -CAM.cx / 100], [0, 1 / 100, -CAM.cy / 100], [0, 0, 1]];
+    const AtA = Array.from({ length: 8 }, () => new Array(8).fill(0)), Atb = new Array(8).fill(0);
+    pix.forEach(([u0, v0], i) => {
+      const u = (u0 - CAM.cx) / 100, v = (v0 - CAM.cy) / 100, [x, y] = world[i];
+      for (const [row, rhs] of [[[u, v, 1, 0, 0, 0, -x * u, -x * v], x], [[0, 0, 0, u, v, 1, -y * u, -y * v], y]]) {
+        for (let a = 0; a < 8; a++) { Atb[a] += row[a] * rhs; for (let b = 0; b < 8; b++) AtA[a][b] += row[a] * row[b]; }
+      }
+    });
+    const h = solve(AtA, Atb);
+    return mul3([[h[0], h[1], h[2]], [h[3], h[4], h[5]], [h[6], h[7], 1]], T);
+  }
+  function calibrate() {
+    const nx = 5, ny = 4, sp = 0.8, world = [];
+    for (let j = ny - 1; j >= 0; j--) for (let i = 0; i < nx; i++) world.push([(i - (nx - 1) / 2) * sp, (j - (ny - 1) / 2) * sp]);
+    const rng = mulberry32(7);
+    const img = renderFrame([-3 * Math.PI / 4, 0], null, { markers: world, noise: 3, flicker: 0, shakeCm: 0 }, rng);
+    let dots = blobs(img, (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b < 70, 5)
+      .filter(b => b.aspect > 0.6).sort((a, b) => b.area - a.area).slice(0, nx * ny);
+    if (dots.length < nx * ny) return { H: inv3(H_TRUE), err: NaN, img, dots: [] };
+    dots.sort((a, b) => a.v - b.v);
+    const rows = []; for (let j = 0; j < ny; j++) rows.push(dots.slice(j * nx, (j + 1) * nx).sort((a, b) => a.u - b.u));
+    const pix = rows.flat().map(d => [d.u, d.v]);
+    const H = homographyDLT(pix, world);
+    const err = pix.reduce((s, p, i) => { const q = applyH(H, p[0], p[1]); return s + Math.hypot(q[0] - world[i][0], q[1] - world[i][1]); }, 0) / pix.length;
+    return { H, err, img, dots: pix };
+  }
+  const CAL = calibrate();
+
+  // =====================================================================
+  // Kalman filter (kalman.py): state [x, y, vx, vy], white-acceleration model
+  // =====================================================================
+  class KF {
+    constructor(q = 0.05, measStd = 0.02) { this.q = q; this.r = measStd * measStd; this.x = null; this.rejects = 0; }
+    init(z) { this.x = [z[0], z[1], 0, 0]; this.P = [[.25, 0, 0, 0], [0, .25, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]; this.rejects = 0; }
+    predict(dt) {
+      if (!this.x) return;
+      const x = this.x, P = this.P, q = this.q;
+      x[0] += x[2] * dt; x[1] += x[3] * dt;
+      const F = [[1, 0, dt, 0], [0, 1, 0, dt], [0, 0, 1, 0], [0, 0, 0, 1]];
+      const FP = F.map(r => [0, 1, 2, 3].map(j => r[0] * P[0][j] + r[1] * P[1][j] + r[2] * P[2][j] + r[3] * P[3][j]));
+      const a = q * dt ** 3 / 3, b = q * dt ** 2 / 2, c = q * dt;
+      const Q = [[a, 0, b, 0], [0, a, 0, b], [b, 0, c, 0], [0, b, 0, c]];
+      this.P = FP.map((r, i) => [0, 1, 2, 3].map(j => r[0] * F[j][0] + r[1] * F[j][1] + r[2] * F[j][2] + r[3] * F[j][3] + Q[i][j]));
+    }
+    update(z) {
+      if (!this.x) { this.init(z); return true; }
+      const P = this.P, x = this.x, y0 = z[0] - x[0], y1 = z[1] - x[1];
+      const s00 = P[0][0] + this.r, s01 = P[0][1], s10 = P[1][0], s11 = P[1][1] + this.r, det = s00 * s11 - s01 * s10;
+      const i00 = s11 / det, i01 = -s01 / det, i10 = -s10 / det, i11 = s00 / det;
+      const nis = y0 * (i00 * y0 + i01 * y1) + y1 * (i10 * y0 + i11 * y1);
+      if (nis > 13.82) { if (++this.rejects >= 5) { this.init(z); return true; } return false; }
+      this.rejects = 0;
+      const K = P.map(r => [r[0] * i00 + r[1] * i10, r[0] * i01 + r[1] * i11]);
+      for (let i = 0; i < 4; i++) x[i] += K[i][0] * y0 + K[i][1] * y1;
+      this.P = P.map((r, i) => r.map((v, j) => v - (K[i][0] * P[0][j] + K[i][1] * P[1][j])));
+      return true;
+    }
+    ahead(h) { return [this.x[0] + this.x[2] * h, this.x[1] + this.x[3] * h]; }
+  }
+
+  // =====================================================================
+  // Closed loop (servo_pipeline.py)
+  // =====================================================================
+  function occluders(t) {
+    const period = 12, start = 7, dur = 2.5, ph = t % period;
+    if (ph < start || ph >= start + dur) return [];
+    const s = (ph - start) / dur, x = -40 + s * (CAM.w + 80), bar = 35;
+    return [[[x, -5], [x + bar, -5], [x + bar + 20, CAM.h + 5], [x + 20, CAM.h + 5]]];
+  }
+  const DISTRACTORS = (() => { const r = mulberry32(3000); return Array.from({ length: 4 }, () => [r() * 4 - 2, r() * 4 - 2]); })();
+
+  class Sim {
+    constructor(o) {
+      this.o = o;  // settings object (live one is shared with the UI)
+      this.rngT = mulberry32(o.seed ?? 1);
+      this.rngC = mulberry32((o.seed ?? 1) + 1000);
+      this.t = 0; this.th = [0, 0]; this.vel = [0, 0];
+      this.tgt = o.path === 'circle' ? [1.6, 0] : (o.path === 'drag' && o.dragTarget ? o.dragTarget.slice() : [1.2, 0.5]);
+      this.queue = []; this.kf = new KF(); this.lastRaw = null; this.est = null;
+      this.frame = null; this.det = null; this.dropped = false; this.meas = null;
+      this.ikOk = true; this.clamped = false; this.misses = 0; this.cmd = null; this.gated = false;
+    }
+    moveTarget() {
+      const o = this.o;
+      if (o.path === 'circle') { const a = o.circSpeed * this.t; this.tgt = [1.6 * Math.cos(a), 1.6 * Math.sin(a)]; }
+      else if (o.path === 'random') {
+        const v = this.vel, p = this.tgt, r = this.rngT, A = 0.8, R = 1.8;
+        v[0] += (r() * 2 - 1) * A * DT; v[1] += (r() * 2 - 1) * A * DT;
+        const sp = Math.hypot(v[0], v[1]); if (sp > o.randSpeed) { v[0] *= o.randSpeed / sp; v[1] *= o.randSpeed / sp; }
+        p[0] += v[0] * DT; p[1] += v[1] * DT;
+        const rr = Math.hypot(p[0], p[1]);
+        if (rr > R) { v[0] -= p[0] / rr * A * DT; v[1] -= p[1] / rr * A * DT; p[0] *= 0.98; p[1] *= 0.98; }
+      } else if (o.dragTarget) this.tgt = o.dragTarget.slice();
+    }
+    step() {
+      const o = this.o;
+      this.t += DT; this.moveTarget();
+      const lagFrames = Math.round(o.delayMs / 50);
+      if (o.estimator !== 'oracle' || o.renderAlways) {
+        const img = renderFrame(this.th, this.tgt, { noise: o.noise, shakeCm: o.shakeCm, distractors: DISTRACTORS, occluders: o.occlusion ? occluders(this.t) : [] }, this.rngC);
+        this.queue.push({ t: this.t, img });
+      }
+      let got = null;
+      while (this.queue.length > lagFrames) got = this.queue.shift();
+      this.meas = null; this.gated = false;
+      if (got) {
+        this.frame = got;
+        this.dropped = this.rngC() < o.drop;
+        this.det = this.dropped ? null : detectBall(got.img);
+        if (this.det) this.meas = applyH(CAL.H, this.det.u, this.det.v);
+      }
+      // keep both camera estimators running so switching is seamless
+      if (this.meas) this.lastRaw = this.meas;
+      this.kf.predict(DT);
+      if (this.meas) this.gated = !this.kf.update(this.meas);
+      const kfEst = this.kf.x ? this.kf.ahead(lagFrames * DT) : null;
+      this.est = o.estimator === 'oracle' ? this.tgt.slice() : o.estimator === 'raw' ? this.lastRaw : kfEst;
+
+      const ee0 = fk(this.th[0], this.th[1])[1];
+      this.cmd = null;
+      if (this.est) {
+        const c = stepController(ee0, this.est, o.gain, o.maxStep);
+        const sol = ik(c.p[0], c.p[1], o.elbowUp);
+        this.ikOk = !!sol; this.clamped = c.clamped; this.cmd = c;
+        if (sol) this.th = sol; else this.misses++;
+      }
+      const ee = fk(this.th[0], this.th[1])[1];
+      this.err = Math.hypot(ee[0] - this.tgt[0], ee[1] - this.tgt[1]);
+      this.estErr = this.est ? Math.hypot(this.est[0] - this.tgt[0], this.est[1] - this.tgt[1]) : NaN;
+      return this.err;
     }
   }
 
+  // =====================================================================
+  // UI state
+  // =====================================================================
+  const $ = id => document.getElementById(id);
+  const cfg = {
+    path: 'circle', estimator: 'kalman', circSpeed: 0.3, randSpeed: 0.8, dragTarget: null,
+    delayMs: 150, noise: 8, shakeCm: 1.7, drop: 0.05, occlusion: true,
+    gain: 0.8, maxStep: 0.08, elbowUp: true, rate: 1, renderAlways: true, seed: 1
+  };
+  let sim, hist, measTrail, trueTrail;
+  function reset() {
+    sim = new Sim(cfg); hist = []; measTrail = []; trueTrail = [];
+  }
   function tick() {
-    S.t += DT;
-    updateTarget();
-    const ee0 = fk(S.th[0], S.th[1])[1];
-    const c = stepController(ee0, S.tgt, cfg.gain, cfg.maxStep);
-    const sol = ik(c.p[0], c.p[1], cfg.elbowUp);
-    S.ikOk = !!sol;
-    if (sol) S.th = sol; else S.misses++;
-    S.clamped = c.clamped;
-    const ee = fk(S.th[0], S.th[1])[1];
-    const e = Math.hypot(S.tgt[0] - ee[0], S.tgt[1] - ee[1]);
-    S.last = { obs: S.tgt.slice(), cmd: c.p, step: c.step, sol, ee };
-    S.trail.push(S.tgt.slice()); if (S.trail.length > 400) S.trail.shift();
-    S.err.push(e); if (S.err.length > 300) S.err.shift();
+    sim.step();
+    hist.push({ e: sim.err, m: cfg.estimator, det: !!sim.det, t: sim.t });
+    if (hist.length > 300) hist.shift();
+    if (sim.meas) { measTrail.push(sim.meas); if (measTrail.length > 50) measTrail.shift(); }
+    trueTrail.push(sim.tgt.slice()); if (trueTrail.length > 300) trueTrail.shift();
   }
 
-  // ---------- drawing ----------
-  const cv = $('sim'), ctx = cv.getContext('2d');
-  const ch = $('chart'), cx2 = ch.getContext('2d');
+  // ---------- colours from tokens ----------
   let C = {};
   function readColors() {
     const s = getComputedStyle(document.documentElement);
-    for (const k of ['ink','muted','line','grid','stage','reach','link1','link2','target','trail','ok','warn','accent','panel'])
+    for (const k of ['ink', 'muted', 'line', 'grid', 'stage', 'reach', 'link1', 'link2', 'target', 'est', 'meas', 'raw', 'kf', 'ok', 'warn', 'accent', 'panel'])
       C[k] = s.getPropertyValue('--' + k).trim();
     C.mono = s.getPropertyValue('--f-mono').trim();
   }
+  const MODE_COLOR = m => m === 'oracle' ? C.meas : m === 'raw' ? C.raw : C.kf;
   function fit(c) {
     const dpr = window.devicePixelRatio || 1, r = c.getBoundingClientRect();
     const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
     if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
     return { w: r.width, h: r.height, dpr };
   }
-  const W = 3; // world half-extent
-  let view = { s: 1, ox: 0, oy: 0 };
+
+  // ---------- world view ----------
+  const cv = $('sim'), ctx = cv.getContext('2d');
+  const W = 2.6; let view = { s: 1, ox: 0, oy: 0 };
   const toPx = (x, y) => [view.ox + x * view.s, view.oy - y * view.s];
   const toWorld = (px, py) => [(px - view.ox) / view.s, (view.oy - py) / view.s];
-
-  function drawSim() {
+  function drawWorld() {
     const { w, h, dpr } = fit(cv);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     view.s = Math.min(w, h) / (2 * W); view.ox = w / 2; view.oy = h / 2;
     ctx.fillStyle = C.stage; ctx.fillRect(0, 0, w, h);
-
-    // grid every 0.5 m
     ctx.lineWidth = 1;
-    for (let g = -W; g <= W + 1e-9; g += 0.5) {
-      const major = Math.abs(g % 1) < 1e-9;
-      ctx.strokeStyle = major ? C.line : C.grid;
-      let [a] = toPx(g, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, h); ctx.stroke();
-      let [, b] = toPx(0, g); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(w, b); ctx.stroke();
+    for (let g = -3; g <= 3 + 1e-9; g += 0.5) {
+      ctx.strokeStyle = Math.abs(g % 1) < 1e-9 ? C.line : C.grid;
+      const [a] = toPx(g, 0); ctx.beginPath(); ctx.moveTo(a, 0); ctx.lineTo(a, h); ctx.stroke();
+      const [, b] = toPx(0, g); ctx.beginPath(); ctx.moveTo(0, b); ctx.lineTo(w, b); ctx.stroke();
     }
     ctx.fillStyle = C.muted; ctx.font = `10px ${C.mono}`; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (let g = -2; g <= 2; g++) { if (!g) continue; const [a, b] = toPx(g, 0); ctx.fillText(g + ' m', a, b + 4); }
     ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     for (let g = -2; g <= 2; g++) { if (!g) continue; const [a, b] = toPx(0, g); ctx.fillText(g + ' m', a + 5, b); }
-
-    // reachable workspace annulus
     const [cx, cy] = toPx(0, 0);
-    ctx.beginPath(); ctx.arc(cx, cy, (L1 + L2) * view.s, 0, Math.PI * 2);
-    ctx.arc(cx, cy, Math.abs(L1 - L2) * view.s, 0, Math.PI * 2, true);
+    ctx.beginPath(); ctx.arc(cx, cy, (L1 + L2) * view.s, 0, Math.PI * 2); ctx.arc(cx, cy, Math.abs(L1 - L2) * view.s, 0, Math.PI * 2, true);
     ctx.fillStyle = C.reach; ctx.fill('evenodd');
     ctx.setLineDash([4, 4]); ctx.strokeStyle = C.link1; ctx.globalAlpha = 0.45;
-    ctx.beginPath(); ctx.arc(cx, cy, (L1 + L2) * view.s, 0, Math.PI * 2); ctx.stroke();
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, (L1 + L2) * view.s, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
 
-    // reference circle for circular mode
-    if (cfg.mode === 'circle') {
-      ctx.setLineDash([2, 5]); ctx.strokeStyle = C.target; ctx.globalAlpha = 0.5;
-      ctx.beginPath(); ctx.arc(cx, cy, R_CIRCLE * view.s, 0, Math.PI * 2); ctx.stroke();
-      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    if (trueTrail.length > 1) {
+      ctx.strokeStyle = C.target; ctx.globalAlpha = 0.35; ctx.lineWidth = 1.5; ctx.beginPath();
+      trueTrail.forEach((p, i) => { const [a, b] = toPx(p[0], p[1]); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
+      ctx.stroke(); ctx.globalAlpha = 1;
     }
-    // trail
-    if (cfg.mode !== 'circle' && S.trail.length > 1) {
-      ctx.strokeStyle = C.trail; ctx.lineWidth = 1.5; ctx.beginPath();
-      S.trail.forEach((p, i) => { const [a, b] = toPx(p[0], p[1]); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); });
-      ctx.stroke();
+    if (cfg.estimator !== 'oracle') {
+      ctx.fillStyle = C.meas;
+      measTrail.forEach((p, i) => { const [a, b] = toPx(p[0], p[1]); ctx.globalAlpha = 0.25 + 0.6 * i / measTrail.length; ctx.beginPath(); ctx.arc(a, b, 2.2, 0, Math.PI * 2); ctx.fill(); });
+      ctx.globalAlpha = 1;
     }
 
-    const [[x1, y1], [x2, y2]] = fk(S.th[0], S.th[1]);
-    const P0 = toPx(0, 0), P1 = toPx(x1, y1), P2 = toPx(x2, y2), PT = toPx(S.tgt[0], S.tgt[1]);
-
-    // error vector
-    ctx.setLineDash([3, 3]); ctx.strokeStyle = C.muted; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(P2[0], P2[1]); ctx.lineTo(PT[0], PT[1]); ctx.stroke(); ctx.setLineDash([]);
-
-    // base mount
-    ctx.fillStyle = C.ink;
-    ctx.beginPath(); ctx.moveTo(P0[0] - 16, P0[1] + 14); ctx.lineTo(P0[0] + 16, P0[1] + 14); ctx.lineTo(P0[0], P0[1]); ctx.closePath();
-    ctx.globalAlpha = 0.18; ctx.fill(); ctx.globalAlpha = 1;
-
+    const [[x1, y1], [x2, y2]] = fk(sim.th[0], sim.th[1]);
+    const P0 = toPx(0, 0), P1 = toPx(x1, y1), P2 = toPx(x2, y2), PT = toPx(sim.tgt[0], sim.tgt[1]);
+    ctx.fillStyle = C.ink; ctx.globalAlpha = 0.18;
+    ctx.beginPath(); ctx.moveTo(P0[0] - 16, P0[1] + 14); ctx.lineTo(P0[0] + 16, P0[1] + 14); ctx.lineTo(P0[0], P0[1]); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
     const lw = Math.max(5, view.s * 0.09);
     ctx.lineCap = 'round';
-    ctx.strokeStyle = C.link1; ctx.lineWidth = lw;
-    ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.stroke();
-    ctx.strokeStyle = C.link2; ctx.lineWidth = lw * 0.8;
-    ctx.beginPath(); ctx.moveTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.stroke();
-
-    const joint = (p, r, fill) => { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2); ctx.fillStyle = C.panel; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = fill; ctx.stroke(); };
+    ctx.strokeStyle = C.link1; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(P0[0], P0[1]); ctx.lineTo(P1[0], P1[1]); ctx.stroke();
+    ctx.strokeStyle = C.link2; ctx.lineWidth = lw * 0.8; ctx.beginPath(); ctx.moveTo(P1[0], P1[1]); ctx.lineTo(P2[0], P2[1]); ctx.stroke();
+    const joint = (p, r, col) => { ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, Math.PI * 2); ctx.fillStyle = C.panel; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke(); };
     joint(P0, lw * 0.8, C.ink); joint(P1, lw * 0.65, C.link1);
-    ctx.beginPath(); ctx.arc(P2[0], P2[1], lw * 0.55, 0, Math.PI * 2); ctx.fillStyle = C.link2; ctx.fill();
+    ctx.beginPath(); ctx.arc(P2[0], P2[1], lw * 0.5, 0, Math.PI * 2); ctx.fillStyle = C.link2; ctx.fill();
 
-    // target crosshair
-    const r = 9;
-    ctx.strokeStyle = C.target; ctx.lineWidth = 2.2;
-    ctx.beginPath(); ctx.arc(PT[0], PT[1], r, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(PT[0] - r - 5, PT[1]); ctx.lineTo(PT[0] - 3, PT[1]); ctx.moveTo(PT[0] + 3, PT[1]); ctx.lineTo(PT[0] + r + 5, PT[1]);
-    ctx.moveTo(PT[0], PT[1] - r - 5); ctx.lineTo(PT[0], PT[1] - 3); ctx.moveTo(PT[0], PT[1] + 3); ctx.lineTo(PT[0], PT[1] + r + 5); ctx.stroke();
-    if (!S.ikOk) {
+    // true target: X
+    const r = 8; ctx.strokeStyle = C.target; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(PT[0] - r, PT[1] - r); ctx.lineTo(PT[0] + r, PT[1] + r); ctx.moveTo(PT[0] + r, PT[1] - r); ctx.lineTo(PT[0] - r, PT[1] + r); ctx.stroke();
+    // estimate: ring
+    if (sim.est && cfg.estimator !== 'oracle') {
+      const PE = toPx(sim.est[0], sim.est[1]);
+      ctx.strokeStyle = C.est; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(PE[0], PE[1], 12, 0, Math.PI * 2); ctx.stroke();
+    }
+    if (!sim.ikOk) {
       ctx.fillStyle = C.warn; ctx.font = `600 11px ${C.mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
       ctx.fillText('out of reach', PT[0] + 14, PT[1] - 8);
     }
   }
 
-  function drawChart() {
-    const { w, h, dpr } = fit(ch);
-    cx2.setTransform(dpr, 0, 0, dpr, 0, 0);
-    cx2.clearRect(0, 0, w, h);
-    const padL = 40, padR = 8, padT = 8, padB = 22;
-    const pw = w - padL - padR, ph = h - padT - padB;
-    const peak = Math.max(0.2, ...S.err);
-    const yMax = peak <= 0.25 ? 0.25 : peak <= 0.5 ? 0.5 : peak <= 1 ? 1 : peak <= 2 ? 2 : Math.ceil(peak);
-    const ticks = [0, yMax / 2, yMax];
-    const Y = v => padT + ph - (v / yMax) * ph, X = i => padL + (i / 299) * pw;
-    cx2.font = `10px ${C.mono}`; cx2.textAlign = 'right'; cx2.textBaseline = 'middle';
-    ticks.forEach(t => {
-      cx2.strokeStyle = C.grid; cx2.lineWidth = 1; cx2.beginPath(); cx2.moveTo(padL, Y(t)); cx2.lineTo(w - padR, Y(t)); cx2.stroke();
-      cx2.fillStyle = C.muted; cx2.fillText(t.toFixed(yMax < 1 ? 2 : 1), padL - 6, Y(t));
-    });
-    // lock band
-    cx2.fillStyle = C.ok; cx2.globalAlpha = 0.12; cx2.fillRect(padL, Y(LOCK), pw, Y(0) - Y(LOCK)); cx2.globalAlpha = 1;
-    cx2.textAlign = 'left'; cx2.textBaseline = 'top'; cx2.fillStyle = C.muted;
-    cx2.fillText('−15 s', padL, h - padB + 6); cx2.textAlign = 'right'; cx2.fillText('now', w - padR, h - padB + 6);
-    const n = S.err.length; if (n < 2) return;
-    const off = 300 - n;
-    cx2.beginPath(); cx2.moveTo(X(off), Y(0));
-    S.err.forEach((e, i) => cx2.lineTo(X(off + i), Y(e)));
-    cx2.lineTo(X(299), Y(0)); cx2.closePath();
-    cx2.fillStyle = C.accent; cx2.globalAlpha = 0.14; cx2.fill(); cx2.globalAlpha = 1;
-    cx2.beginPath(); S.err.forEach((e, i) => i ? cx2.lineTo(X(off + i), Y(e)) : cx2.moveTo(X(off + i), Y(e)));
-    cx2.strokeStyle = C.accent; cx2.lineWidth = 1.8; cx2.stroke();
-    const le = S.err[n - 1]; cx2.beginPath(); cx2.arc(X(299), Y(le), 3.5, 0, Math.PI * 2); cx2.fillStyle = C.accent; cx2.fill();
+  // ---------- camera view ----------
+  const camView = $('cam'), vctx = camView.getContext('2d');
+  const stage = document.createElement('canvas'); stage.width = CAM.w; stage.height = CAM.h;
+  const sctx = stage.getContext('2d');
+  let showCal = 0;
+  function drawCam() {
+    const { w, h, dpr } = fit(camView);
+    vctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    vctx.imageSmoothingEnabled = false;
+    const sx = w / CAM.w, sy = h / CAM.h;
+    if (showCal > 0) {
+      sctx.putImageData(CAL.img, 0, 0); vctx.drawImage(stage, 0, 0, w, h);
+      vctx.strokeStyle = '#ff2fb0'; vctx.lineWidth = 1.5;
+      CAL.dots.forEach(([u, v], i) => { vctx.beginPath(); vctx.arc(u * sx, v * sy, 6, 0, Math.PI * 2); vctx.stroke(); });
+      return;
+    }
+    const f = sim.frame;
+    if (!f) { vctx.fillStyle = '#0e141b'; vctx.fillRect(0, 0, w, h); return; }
+    sctx.putImageData(f.img, 0, 0); vctx.drawImage(stage, 0, 0, w, h);
+    const d = sim.det;
+    if (d && cfg.estimator !== 'oracle') {
+      vctx.strokeStyle = '#ff2fb0'; vctx.lineWidth = 2;
+      vctx.beginPath(); vctx.arc(d.u * sx, d.v * sy, (d.r + 3) * sx, 0, Math.PI * 2); vctx.stroke();
+      vctx.beginPath(); vctx.moveTo(d.u * sx - 6, d.v * sy); vctx.lineTo(d.u * sx + 6, d.v * sy); vctx.moveTo(d.u * sx, d.v * sy - 6); vctx.lineTo(d.u * sx, d.v * sy + 6); vctx.stroke();
+    }
+    if (cfg.estimator === 'oracle') {
+      vctx.fillStyle = 'rgba(0,0,0,0.55)'; vctx.fillRect(0, h / 2 - 16, w, 32);
+      vctx.fillStyle = '#e8eef3'; vctx.font = `600 12px ${C.mono}`; vctx.textAlign = 'center'; vctx.textBaseline = 'middle';
+      vctx.fillText('Perfect info: robot ignores the camera', w / 2, h / 2);
+    }
   }
 
-  // ---------- UI readouts ----------
-  const deg = r => (r * 180 / Math.PI).toFixed(1) + '°';
+  // ---------- error chart ----------
+  const ch = $('chart'), cx2 = ch.getContext('2d');
+  function drawChart() {
+    const { w, h, dpr } = fit(ch);
+    cx2.setTransform(dpr, 0, 0, dpr, 0, 0); cx2.clearRect(0, 0, w, h);
+    const padL = 40, padR = 10, padT = 8, padB = 22, pw = w - padL - padR, ph = h - padT - padB;
+    const vals = hist.map(p => p.e * 100);
+    const peak = Math.max(10, ...vals.filter((v, i) => hist[i].t >= WARMUP));
+    const yMax = peak <= 10 ? 10 : peak <= 20 ? 20 : peak <= 50 ? 50 : 100 * Math.ceil(peak / 100);
+    const Y = v => padT + ph - (Math.min(v, yMax) / yMax) * ph, X = i => padL + (i / 299) * pw;
+    cx2.font = `10px ${C.mono}`; cx2.textAlign = 'right'; cx2.textBaseline = 'middle';
+    [0, yMax / 2, yMax].forEach(t => {
+      cx2.strokeStyle = C.grid; cx2.lineWidth = 1; cx2.beginPath(); cx2.moveTo(padL, Y(t)); cx2.lineTo(w - padR, Y(t)); cx2.stroke();
+      cx2.fillStyle = C.muted; cx2.fillText(t + ' cm', padL - 5, Y(t));
+    });
+    cx2.fillStyle = C.ok; cx2.globalAlpha = 0.13; cx2.fillRect(padL, Y(LOCK * 100), pw, Y(0) - Y(LOCK * 100)); cx2.globalAlpha = 1;
+    cx2.textBaseline = 'top'; cx2.fillStyle = C.muted; cx2.textAlign = 'left'; cx2.fillText('−15 s', padL, h - padB + 6);
+    cx2.textAlign = 'right'; cx2.fillText('now', w - padR, h - padB + 6);
+    const n = hist.length; if (n < 2) return;
+    const off = 300 - n;
+    cx2.lineWidth = 1.8; cx2.lineJoin = 'round';
+    let i = 0;
+    while (i < n - 1) {
+      const m = hist[i].m; cx2.strokeStyle = MODE_COLOR(m); cx2.beginPath(); cx2.moveTo(X(off + i), Y(vals[i]));
+      while (i < n - 1 && hist[i + 1].m === m) { i++; cx2.lineTo(X(off + i), Y(vals[i])); }
+      if (i < n - 1) { i++; cx2.lineTo(X(off + i), Y(vals[i])); }
+      cx2.stroke();
+    }
+    cx2.beginPath(); cx2.arc(X(299), Y(vals[n - 1]), 3.5, 0, Math.PI * 2); cx2.fillStyle = MODE_COLOR(hist[n - 1].m); cx2.fill();
+  }
+
+  // ---------- readouts ----------
+  const deg = r => { let d = r * 180 / Math.PI; d = ((d + 180) % 360 + 360) % 360 - 180; return d.toFixed(1) + '°'; };
   const pt = p => `(${p[0].toFixed(2)}, ${p[1].toFixed(2)})`;
+  const cm = m => (m * 100).toFixed(1) + ' cm';
   let pipeIdx = 0, pipeClock = 0;
   function updateUI() {
-    const ee = fk(S.th[0], S.th[1])[1];
-    const e = Math.hypot(S.tgt[0] - ee[0], S.tgt[1] - ee[1]);
-    $('simTime').textContent = S.t.toFixed(2);
-    $('errV').innerHTML = `${e.toFixed(3)} <small>m</small>`;
+    $('simTime').textContent = sim.t.toFixed(2);
+    $('errV').innerHTML = `${(sim.err * 100).toFixed(1)} <small>cm</small>`;
     const chip = $('lockChip');
-    if (!S.ikOk) { chip.textContent = 'UNREACHABLE'; chip.className = 'chip warn'; }
-    else if (e < LOCK) { chip.textContent = 'LOCKED'; chip.className = 'chip ok'; }
+    if (!sim.est) { chip.textContent = 'NO TARGET YET'; chip.className = 'chip warn'; }
+    else if (!sim.ikOk) { chip.textContent = 'UNREACHABLE'; chip.className = 'chip warn'; }
+    else if (sim.err < LOCK) { chip.textContent = 'LOCKED'; chip.className = 'chip ok'; }
     else { chip.textContent = 'CHASING'; chip.className = 'chip mid'; }
-    $('t1V').textContent = deg(S.th[0]); $('t2V').textContent = deg(S.th[1]);
-    $('eeV').textContent = pt(ee); $('tgV').textContent = pt(S.tgt);
-    $('ikV').textContent = S.ikOk ? 'valid' : 'none, holding';
-    $('ikV').style.color = S.ikOk ? '' : 'var(--warn)';
-    $('clampV').textContent = S.clamped ? 'saturated' : 'off';
-    if (S.last) {
-      const L = S.last;
-      $('p1').textContent = pt(L.obs);
-      $('p2').textContent = pt(L.obs);
-      $('p3').textContent = `Δ ${Math.hypot(L.step[0], L.step[1]).toFixed(3)} m`;
-      $('p4').textContent = L.sol ? `${deg(L.sol[0])}, ${deg(L.sol[1])}` : 'no solution';
-      $('p5').textContent = pt(L.ee);
-    }
-    const n = S.err.length;
-    if (n) {
-      $('sMean').textContent = (S.err.reduce((a, b) => a + b, 0) / n).toFixed(3) + ' m';
-      $('sPeak').textContent = Math.max(...S.err).toFixed(3) + ' m';
-      $('sLock').textContent = Math.round(100 * S.err.filter(x => x < LOCK).length / n) + '%';
-    }
-    $('sMiss').textContent = S.misses;
+    $('estErrV').textContent = cfg.estimator === 'oracle' ? 'exact' : isNaN(sim.estErr) ? '–' : cm(sim.estErr);
+    const recent = hist.slice(-100);
+    $('detV').textContent = cfg.estimator === 'oracle' ? 'n/a' : Math.round(100 * recent.filter(p => p.det).length / Math.max(1, recent.length)) + ' %';
+    $('t1V').textContent = deg(sim.th[0]); $('t2V').textContent = deg(sim.th[1]);
+    $('ikV').textContent = sim.ikOk ? 'valid' : 'none, holding';
+    $('ikV').style.color = sim.ikOk ? '' : 'var(--warn)';
+    $('clampV').textContent = sim.clamped ? 'saturated' : 'off';
+
+    const lag = Math.round(cfg.delayMs / 50) * 50;
+    $('camAge').textContent = cfg.estimator === 'oracle' ? 'camera ignored' : `frame t−${lag} ms`;
+    const cd = $('camDet');
+    if (cfg.estimator === 'oracle') { cd.textContent = '—'; cd.className = ''; }
+    else if (sim.dropped) { cd.textContent = 'frame dropped'; cd.className = 'bad'; }
+    else if (sim.det) { cd.textContent = 'ball detected'; cd.className = 'good'; }
+    else { cd.textContent = 'no ball found'; cd.className = 'bad'; }
+
+    const cam = cfg.estimator !== 'oracle';
+    [...$('pipe').children].forEach((li, i) => li.classList.toggle('skip', !cam && i < 3));
+    $('p1').textContent = cam ? (sim.dropped ? 'dropped' : `t−${lag} ms`) : 'skipped';
+    $('p2').textContent = cam ? (sim.det ? `(${sim.det.u.toFixed(1)}, ${sim.det.v.toFixed(1)}) px` : 'none') : 'skipped';
+    $('p3').textContent = cam ? (sim.meas ? pt(sim.meas) + ' m' : '–') : 'skipped';
+    $('p4d').textContent = cfg.estimator === 'kalman' ? 'Kalman: predict, gate, update, look ahead' : cfg.estimator === 'raw' ? 'Raw: use the latest detection as is' : 'Perfect info: true position';
+    $('p4').textContent = sim.est ? (sim.gated && cfg.estimator === 'kalman' ? 'outlier rejected' : pt(sim.est)) : 'waiting';
+    $('p5').textContent = sim.cmd ? `${deg(sim.th[0])}, ${deg(sim.th[1])}` : '–';
+    $('p6').textContent = pt(fk(sim.th[0], sim.th[1])[1]);
+
+    const kept = hist.filter(p => p.t >= WARMUP && p.m === cfg.estimator).slice(-200);
+    if (kept.length) {
+      const e = kept.map(p => p.e);
+      $('sRms').textContent = cm(Math.sqrt(e.reduce((a, b) => a + b * b, 0) / e.length));
+      $('sPeak').textContent = cm(Math.max(...e));
+      $('sLock').textContent = Math.round(100 * e.filter(x => x < LOCK).length / e.length) + ' %';
+    } else { $('sRms').textContent = $('sPeak').textContent = $('sLock').textContent = '–'; }
+    $('sMiss').textContent = sim.misses;
   }
   function highlightPipe(dtMs) {
     pipeClock += dtMs;
-    if (pipeClock > 110) { pipeClock = 0; pipeIdx = (pipeIdx + 1) % 5; }
+    if (pipeClock > 100) { pipeClock = 0; pipeIdx = (pipeIdx + 1) % 6; }
     [...$('pipe').children].forEach((li, i) => li.classList.toggle('on', i === pipeIdx));
   }
+  function render() { drawWorld(); drawCam(); drawChart(); updateUI(); }
 
   // ---------- controls ----------
   let running = true;
   function setRunning(v) {
-    running = v;
-    $('playBtn').textContent = v ? 'Pause' : 'Play';
+    running = v; $('playBtn').textContent = v ? 'Pause' : 'Play';
     $('runPill').className = 'pill ' + (v ? 'live' : 'paused');
     $('runText').textContent = v ? 'Running · 20 Hz loop' : 'Paused';
   }
   $('playBtn').onclick = () => setRunning(!running);
   $('stepBtn').onclick = () => { setRunning(false); tick(); render(); };
-  $('resetBtn').onclick = () => { reset(); render(); };
+  $('resetBtn').onclick = () => { reset(); warm(); render(); };
 
-  const modeHints = {
+  const pathHints = {
     circle: 'Target orbits at r = 1.6 m · shaded ring = reachable workspace',
-    random: 'Random-walk target · no known path, arm relies on feedback',
-    drag: 'Drag or tap anywhere to move the target'
+    random: 'Random-walk target · no known path, the arm relies on the camera',
+    drag: 'Drag or tap anywhere to move the ball under the camera'
   };
-  function setMode(m) {
-    cfg.mode = m;
+  function setPath(m) {
+    cfg.path = m;
     ['circle', 'random', 'drag'].forEach(k => $('m-' + k).setAttribute('aria-pressed', k === m));
-    $('hint').textContent = modeHints[m];
+    $('hint').textContent = pathHints[m];
     const sp = $('tSpeed');
     if (m === 'circle') { sp.disabled = false; sp.min = 0.05; sp.max = 1.5; sp.step = 0.05; sp.value = cfg.circSpeed; }
     else if (m === 'random') { sp.disabled = false; sp.min = 0.1; sp.max = 2; sp.step = 0.1; sp.value = cfg.randSpeed; }
-    else { sp.disabled = true; if (!dragTarget) dragTarget = [1.4, 0.9]; }
-    syncSpeedLabel();
-    reset(); render();
+    else { sp.disabled = true; if (!cfg.dragTarget) cfg.dragTarget = [1.3, 0.9]; }
+    syncSpeed(); reset(); warm(); render();
   }
-  ['circle', 'random', 'drag'].forEach(k => $('m-' + k).onclick = () => setMode(k));
-
-  function syncSpeedLabel() {
-    $('tSpeedO').textContent = cfg.mode === 'circle' ? cfg.circSpeed.toFixed(2) + ' rad/s'
-      : cfg.mode === 'random' ? 'max ' + cfg.randSpeed.toFixed(1) + ' m/s' : 'you control it';
+  ['circle', 'random', 'drag'].forEach(k => $('m-' + k).onclick = () => setPath(k));
+  function syncSpeed() {
+    $('tSpeedO').textContent = cfg.path === 'circle' ? cfg.circSpeed.toFixed(2) + ' rad/s'
+      : cfg.path === 'random' ? 'max ' + cfg.randSpeed.toFixed(1) + ' m/s' : 'you move it';
   }
-  $('gain').oninput = e => { cfg.gain = +e.target.value; $('gainO').textContent = cfg.gain.toFixed(2); };
-  $('maxStep').oninput = e => { cfg.maxStep = +e.target.value; $('maxStepO').textContent = cfg.maxStep.toFixed(3) + ' m'; };
-  $('tSpeed').oninput = e => {
-    if (cfg.mode === 'circle') {
-      // keep target angle continuous when speed changes
-      const a = cfg.circSpeed * S.t; cfg.circSpeed = +e.target.value; S.t = a / cfg.circSpeed;
-    } else if (cfg.mode === 'random') cfg.randSpeed = +e.target.value;
-    syncSpeedLabel();
+  const estNotes = {
+    oracle: 'The original simulation: the robot is handed the exact target position. No camera, no noise, no delay.',
+    raw: 'The latest detection goes straight to the controller, held when the ball is not found. Watch it lag behind and jitter.',
+    kalman: 'Detections go through a constant-velocity Kalman filter that smooths jitter, coasts through gaps and predicts ahead to cancel the camera delay.'
   };
-  $('simRate').oninput = e => { cfg.rate = +e.target.value; $('simRateO').textContent = cfg.rate.toFixed(2).replace(/0$/, '') + '×'; };
+  function setEstimator(m) {
+    cfg.estimator = m;
+    ['oracle', 'raw', 'kalman'].forEach(k => $('e-' + k).setAttribute('aria-pressed', k === m));
+    $('estNote').textContent = estNotes[m];
+    render();
+  }
+  ['oracle', 'raw', 'kalman'].forEach(k => $('e-' + k).onclick = () => setEstimator(k));
+
+  const bind = (id, fn) => { const el = $(id); el.addEventListener('input', () => fn(+el.value, el)); };
+  bind('gain', v => { cfg.gain = v; $('gainO').textContent = v.toFixed(2); });
+  bind('maxStep', v => { cfg.maxStep = v; $('maxStepO').textContent = v.toFixed(3) + ' m'; });
+  bind('tSpeed', v => {
+    if (cfg.path === 'circle') { const a = cfg.circSpeed * sim.t; cfg.circSpeed = v; sim.t = a / v; }
+    else if (cfg.path === 'random') cfg.randSpeed = v;
+    syncSpeed();
+  });
+  bind('simRate', v => { cfg.rate = v; $('simRateO').textContent = (+v.toFixed(2)) + '×'; });
+  bind('delay', v => { cfg.delayMs = v; $('delayO').textContent = v + ' ms'; $('camLag').textContent = v + ' ms delay'; });
+  bind('noise', v => { cfg.noise = v; $('noiseO').textContent = 'σ ' + v + ' grey levels'; });
+  bind('shake', v => { cfg.shakeCm = v; $('shakeO').textContent = v.toFixed(1) + ' cm'; });
+  bind('drop', v => { cfg.drop = v / 100; $('dropO').textContent = v + ' %'; });
+  $('occl').onchange = e => { cfg.occlusion = e.target.checked; };
   $('elbowUp').onchange = e => { cfg.elbowUp = e.target.checked; };
 
-  // drag target
   let dragging = false;
-  function pointerWorld(ev) {
-    const r = cv.getBoundingClientRect();
-    const p = toWorld(ev.clientX - r.left, ev.clientY - r.top);
-    return [Math.max(-W, Math.min(W, p[0])), Math.max(-W, Math.min(W, p[1]))];
-  }
+  const pointerWorld = ev => { const r = cv.getBoundingClientRect(); const p = toWorld(ev.clientX - r.left, ev.clientY - r.top); return [Math.max(-2.4, Math.min(2.4, p[0])), Math.max(-2.4, Math.min(2.4, p[1]))]; };
   cv.addEventListener('pointerdown', ev => {
-    if (cfg.mode !== 'drag') setMode('drag');
-    dragging = true; cv.setPointerCapture(ev.pointerId);
-    dragTarget = pointerWorld(ev); S.tgt = dragTarget.slice();
+    if (cfg.path !== 'drag') setPath('drag');
+    dragging = true; cv.setPointerCapture(ev.pointerId); cfg.dragTarget = pointerWorld(ev); sim.tgt = cfg.dragTarget.slice();
   });
-  cv.addEventListener('pointermove', ev => { if (dragging) { dragTarget = pointerWorld(ev); S.tgt = dragTarget.slice(); } });
+  cv.addEventListener('pointermove', ev => { if (dragging) { cfg.dragTarget = pointerWorld(ev); sim.tgt = cfg.dragTarget.slice(); } });
   const endDrag = () => { dragging = false; };
   cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
 
-  // theme changes
+  // ---------- benchmark ----------
+  let benchToken = 0;
+  async function runBenchmark() {
+    const token = ++benchToken;
+    $('benchBtn').disabled = true; $('verdict').textContent = 'Running benchmark…';
+    const base = { ...cfg, path: cfg.path === 'drag' ? 'random' : cfg.path, renderAlways: false, seed: 11, dragTarget: null };
+    const res = {};
+    for (const est of ['oracle', 'raw', 'kalman']) {
+      $('b-' + est).textContent = '…';
+      const s = new Sim({ ...base, estimator: est });
+      const errs = [];
+      for (let k = 0; k < 600; k++) {
+        s.step(); if (s.t >= WARMUP) errs.push(s.err);
+        if (k % 20 === 19) { await new Promise(r => setTimeout(r, 0)); if (token !== benchToken) return; }
+      }
+      res[est] = {
+        rms: Math.sqrt(errs.reduce((a, b) => a + b * b, 0) / errs.length),
+        lock: 100 * errs.filter(e => e < LOCK).length / errs.length
+      };
+      $('b-' + est).textContent = cm(res[est].rms);
+      $('bs-' + est).textContent = `${Math.round(res[est].lock)} % of the time within 5 cm`;
+    }
+    const mx = Math.max(...Object.values(res).map(r => r.rms));
+    for (const k in res) $('bb-' + k).style.width = Math.max(2, 100 * res[k].rms / mx) + '%';
+    const cut = 100 * (1 - res.kalman.rms / res.raw.rms);
+    $('verdict').innerHTML = cut > 0 ? `Kalman cuts error by <b>${Math.round(cut)} %</b>` : `Raw wins by ${Math.round(-cut)} % here`;
+    $('benchNote').textContent = `30 s on the ${base.path === 'circle' ? 'circular' : 'random'} path, ${Math.round(cfg.delayMs / 50) * 50} ms delay, noise σ ${cfg.noise}, ${Math.round(cfg.drop * 100)} % dropped frames. RMS after the first 2 s.`;
+    $('benchBtn').disabled = false;
+  }
+  $('benchBtn').onclick = runBenchmark;
+
+  // ---------- theme + boot ----------
   readColors();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); render(); });
   new MutationObserver(() => { readColors(); render(); }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
-  document.fonts && document.fonts.ready.then(() => { readColors(); render(); });
+  if (document.fonts) document.fonts.ready.then(() => { readColors(); render(); });
 
-  function render() { drawSim(); drawChart(); updateUI(); }
+  $('calErr').textContent = isNaN(CAL.err) ? 'failed' : (CAL.err * 1000).toFixed(1) + ' mm';
+  $('calErr').parentElement.title = 'Click to view the calibration image';
+  $('calErr').parentElement.style.cursor = 'pointer';
+  $('calErr').parentElement.onclick = () => { showCal = 40; };
 
-  // ---------- main loop (fixed Δt = 0.05 s, matching the Python sim) ----------
-  reset();
-  // warm-up so the first frame shows the arm already tracking
-  for (let i = 0; i < 40; i++) tick();
+  function warm() { for (let i = 0; i < 60; i++) tick(); }  // open mid-track
+  reset(); warm();
   let acc = 0, prev = performance.now();
   function frame(now) {
     const dtMs = Math.min(100, now - prev); prev = now;
+    if (showCal > 0) showCal--;
     if (running) {
       acc += dtMs / 1000 * cfg.rate;
       let n = 0;
-      while (acc >= DT && n < 12) { tick(); acc -= DT; n++; }
+      while (acc >= DT && n < 6) { tick(); acc -= DT; n++; }
+      if (n === 6) acc = 0;
       highlightPipe(dtMs);
     }
     render();
@@ -600,6 +1045,7 @@ footer code { font-family: var(--f-mono); font-size: 11.5px; }
   }
   render();
   requestAnimationFrame(frame);
+  setTimeout(runBenchmark, 400);
 })();
 </script>
 </body>

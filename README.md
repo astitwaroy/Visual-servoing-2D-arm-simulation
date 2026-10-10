@@ -127,11 +127,14 @@ python sim_visual_servo_moving_circular_target.py
 python sim_visual_servo_moving_unknown_target.py
 ```
 
-### Browser demo
-`index.html` is a self-contained page that runs the controller and IK in the browser
-(drag the target, tune the gain and step limit, watch the error trace). Turn on GitHub Pages
-(Settings → Pages → Deploy from branch → `main` / root) to get a shareable link.
-The camera and Kalman pipeline runs in Python.
+### Live browser demo
+**▶ [astitwaroy.github.io/Visual-servoing-2D-arm-simulation](https://astitwaroy.github.io/Visual-servoing-2D-arm-simulation/)**
+
+`index.html` runs the whole camera pipeline in the browser: a simulated 320×240 overhead camera,
+colour-blob detection, homography calibration from a dot grid, and the Kalman filter.
+Switch between *Perfect info*, *Raw camera* and *Kalman filter* to watch the arm lag and jitter
+without the filter, change delay / noise / shake / dropped frames, drag the ball around, and run a
+30 s benchmark of all three estimators on the same path and noise.
 
 ---
 
@@ -149,7 +152,7 @@ The camera and Kalman pipeline runs in Python.
 ├── webcam_tracking.py              live webcam / video-file tracking
 ├── sim_visual_servo_moving_circular_target.py   original sim (true position, circular path)
 ├── sim_visual_servo_moving_unknown_target.py    original sim (true position, random path)
-├── index.html                      browser demo
+├── index.html                      browser demo (camera, detection, Kalman, benchmark)
 ├── tests/test_pipeline.py
 └── assets/                         GIFs
 ```
